@@ -1,0 +1,10 @@
+-xc++
+-Wall
+-Wextra
+-std=c++17
+-DNDEBUG
+-pedantic
+-isystem
+benchmark/include
+-isystem
+/home/linuxbrew/.linuxbrew/opt/eigen/include/eigen3
