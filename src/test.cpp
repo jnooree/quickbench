@@ -1,7 +1,9 @@
-#include <Eigen/Dense>
-#include <benchmark/benchmark.h>
 #include <cmath>
 #include <vector>
+
+#include <Eigen/Dense>
+
+#include <benchmark/benchmark.h>
 
 #define COS_VALUES(m) m.cwiseProduct(m(Eigen::all, {1, 2, 0})).colwise().sum()
 
