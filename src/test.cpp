@@ -10,39 +10,64 @@ const auto ms = []() {
   std::vector<Eigen::Matrix3d> ret;
   ret.reserve(100);
   for (int i = 0; i < 100; ++i)
-    ret.emplace_back(Eigen::Matrix3d::Random().colwise().normalized());
+    ret.emplace_back(Eigen::Matrix3d::Random().eval().colwise().normalized());
   return ret;
 }();
 
+constexpr double kAlpha = 2.007;
+constexpr double kHalfAlpha = kAlpha / 2;
+const double kTanHalfAlpha = std::tan(kHalfAlpha);
+
 void use_acos(benchmark::State &state) {
+  int n = 0;
+  for (const auto &m : ms) {
+    double average = COS_VALUES(m).array().min(1).max(-1).acos().mean();
+    n += average <= kAlpha;
+  }
+  state.counters["n"] = n;
+
   for (auto _ : state) {
     for (const auto &m : ms) {
       double average = COS_VALUES(m).array().min(1).max(-1).acos().mean();
-      benchmark::DoNotOptimize(average < 0.238942);
+      benchmark::DoNotOptimize(average <= kAlpha);
     }
   }
 }
 
-BENCHMARK_ALWAYS_INLINE inline auto tan2_common(const Eigen::Matrix3d &m) {
-  Eigen::Array3d cosines = COS_VALUES(m),
-                 sines = (1 - cosines.square().min(1)).sqrt();
-  return std::make_pair(sines.sum(), cosines.sum());
+BENCHMARK_ALWAYS_INLINE inline auto half_tan2_common(const Eigen::Matrix3d &m) {
+  double csum = (m + m(Eigen::all, {1, 2, 0})).colwise().norm().sum(),
+         ssum = (m - m(Eigen::all, {1, 2, 0})).colwise().norm().sum();
+  return std::make_pair(ssum, csum);
 }
 
 void use_atan2(benchmark::State &state) {
+  int n = 0;
+  for (const auto &m : ms) {
+    auto [ss, cs] = half_tan2_common(m);
+    n += std::atan2(ss, cs) <= kHalfAlpha;
+  }
+  state.counters["n"] = n;
+
   for (auto _ : state) {
     for (const auto &m : ms) {
-      auto [ssum, csum] = tan2_common(m);
-      benchmark::DoNotOptimize(std::atan2(ssum, csum) < 0.238942);
+      auto [ss, cs] = half_tan2_common(m);
+      benchmark::DoNotOptimize(std::atan2(ss, cs) <= kHalfAlpha);
     }
   }
 }
 
 void use_tan2(benchmark::State &state) {
+  int n = 0;
+  for (const auto &m : ms) {
+    auto [ss, cs] = half_tan2_common(m);
+    n += ss <= cs * kTanHalfAlpha;
+  }
+  state.counters["n"] = n;
+
   for (auto _ : state) {
     for (const auto &m : ms) {
-      auto [ssum, csum] = tan2_common(m);
-      benchmark::DoNotOptimize(csum * -0.238942 < ssum);
+      auto [ss, cs] = half_tan2_common(m);
+      benchmark::DoNotOptimize(ss <= cs * kTanHalfAlpha);
     }
   }
 }
